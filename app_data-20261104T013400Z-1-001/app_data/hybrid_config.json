@@ -1,0 +1,25 @@
+{
+  "weights": {
+    "knn": 1.0,
+    "svd": 0.5,
+    "content": 1.0,
+    "segpop": 0.3,
+    "pop": 0.3
+  },
+  "svd_k": 32,
+  "svd_alpha": 0.0,
+  "content_weights": {
+    "brand": 1.0,
+    "platform": 0.7,
+    "price": 0.5,
+    "title": 1.0
+  },
+  "half_life_days": 365,
+  "event_weights": {
+    "visto": 0.2,
+    "guardado": 0.5,
+    "descartado": -0.5,
+    "comprado": 1.0
+  },
+  "topk": 10
+}

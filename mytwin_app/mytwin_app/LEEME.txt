@@ -1,0 +1,5 @@
+MyTwin app web
+1) pip install pandas pyarrow scipy numpy
+2) python server.py --data RUTA/app_data --port 8000
+3) abrir http://localhost:8000
+(app_data se genera con el notebook 04b)

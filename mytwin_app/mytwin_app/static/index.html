@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyTwin · Demo del recomendador</title>
+<style>
+:root{
+  --bg:#f5f6fb; --card:#ffffff; --ink:#1b2133; --muted:#667089; --line:#e2e5f0; --brand:#5b5bd6; --brand-ink:#ffffff;
+  --soft:#eef0fb; --ok:#12805c; --warn:#b45309; --bad:#c2410c;
+  --c-content:#7c5cff; --c-knn:#2f80ed; --c-svd:#12a594; --c-segpop:#f5a524; --c-pop:#9aa3b2;
+  --shadow:0 1px 2px rgba(20,30,60,.06),0 4px 14px rgba(20,30,60,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f121b; --card:#171b28; --ink:#e8ebf6; --muted:#9aa4bd; --line:#2a3046; --soft:#1f2437; --brand:#8b8bf5; --brand-ink:#0f121b; --ok:#4cc9a0; --warn:#f0b254; --bad:#fb923c; --shadow:none; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.wrap{max-width:1200px;margin:0 auto;padding:0 18px}
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 0}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.5px}.logo b{color:var(--brand)}
+.sub{color:var(--muted);font-size:13px}
+.stats{margin-left:auto;display:flex;gap:14px;color:var(--muted);font-size:13px}
+.stats b{color:var(--ink)}
+.tabs{display:flex;gap:6px;padding-bottom:10px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tab.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+main{padding:18px 0 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:16px}
+.filters{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.filters label{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+select,input[type=text],input[type=search]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+input[type=range]{accent-color:var(--brand)}
+.grid{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer;font:inherit}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+.btn:hover{filter:brightness(.97)}
+.ucard{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;cursor:pointer;background:var(--card)}
+.ucard:hover,.ucard.on{border-color:var(--brand);background:var(--soft)}
+.ucard .id{font-weight:600;font-size:14px}.ucard .meta{color:var(--muted);font-size:12px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;cursor:pointer}
+.chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.chip.static{cursor:default;background:var(--soft)}
+.chip .x{margin-left:6px;opacity:.7;cursor:pointer}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:760px){.pgrid{grid-template-columns:1fr}}
+.pgrid h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.row{display:grid;grid-template-columns:110px 1fr 38px;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+.row .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{height:9px;background:var(--soft);border-radius:99px;overflow:hidden}
+.fill{height:100%;background:var(--brand);border-radius:99px}
+.row .pct{color:var(--muted);text-align:right}
+.note{color:var(--muted);font-size:13px}
+.held{border-left:4px solid var(--brand)}
+.held.hit{border-left-color:var(--ok)}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--soft)}
+.badge.ok{color:var(--ok)}.badge.mid{color:var(--warn)}.badge.low{color:var(--bad)}
+.recs{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(max-width:980px){.recs{grid-template-columns:1fr}}
+.rec{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:6px}
+.rank{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--brand)}
+.delta{font-size:12px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--soft)}
+.delta.up{color:var(--ok)}.delta.down{color:var(--bad)}.delta.new{color:var(--brand)}
+.rtitle{font-weight:600}.rmeta{color:var(--muted);font-size:13px}
+.reason{font-size:13px}
+.cbar{display:flex;height:9px;border-radius:99px;overflow:hidden;background:var(--soft)}
+.cbar span{display:block;height:100%}
+.s-content{background:var(--c-content)}.s-knn{background:var(--c-knn)}.s-svd{background:var(--c-svd)}.s-segpop{background:var(--c-segpop)}.s-pop{background:var(--c-pop)}
+.acts{display:flex;gap:6px;margin-top:2px}
+.acts button{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:9px;padding:6px 0;cursor:pointer;font:inherit;font-size:14px}
+.acts button:hover{border-color:var(--brand);background:var(--soft)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.loading{opacity:.5;pointer-events:none}
+.err{border-color:var(--bad);color:var(--bad)}
+.empty{text-align:center;color:var(--muted);padding:36px 10px}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:860px){.flow{grid-template-columns:1fr}}
+.step{background:var(--soft);border-radius:12px;padding:12px;font-size:13px}
+.step b{display:block;margin-bottom:4px;color:var(--brand)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+th{color:var(--muted);font-weight:600}
+.sres{margin-top:8px}.sres .it{display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0;font-size:13px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div><div class="logo">My<b>Twin</b></div><div class="sub">Tu gemelo digital de preferencias · demo del recomendador</div></div>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-tab="existing">👤 Usuarios existentes</button>
+      <button class="tab" data-tab="new">✨ Usuario nuevo</button>
+      <button class="tab" data-tab="how">ℹ️ Cómo funciona</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card filters" id="filters">
+    <strong>Filtros</strong>
+    <label>Plataforma <select id="fPlat"><option value="">Todas</option></select></label>
+    <label>Precio máx. <input type="range" id="fPrice" min="0" max="100" step="5" value="100"> <span id="fPriceVal">sin límite</span></label>
+    <span class="note">Los filtros se aplican a las recomendaciones de abajo.</span>
+  </div>
+
+  <section id="tab-existing">
+    <div class="grid">
+      <aside class="card">
+        <h3>Usuarios registrados</h3>
+        <input type="search" id="userSearch" placeholder="Buscar por ID…" style="width:100%">
+        <div style="margin-top:8px"><button class="btn" id="btnShuffle">🎲 Mostrar otros usuarios</button></div>
+        <div id="userList"></div>
+      </aside>
+      <div id="existingResult"><div class="card empty">Elige un usuario de la izquierda para ver su perfil virtual y sus recomendaciones.</div></div>
+    </div>
+  </section>
+
+  <section id="tab-new" hidden>
+    <div class="card" id="onboard">
+      <h3>Cuéntanos qué te gusta y crearemos tu perfil</h3>
+      <div class="pgrid">
+        <div><h4>Plataformas</h4><div class="chips" id="obPlat"></div></div>
+        <div><h4>Marcas favoritas</h4><div class="chips" id="obBrand"></div></div>
+        <div>
+          <h4>Intereses (palabras clave)</h4><input type="text" id="obKw" placeholder="ej: racing, zelda, wireless" style="width:100%">
+          <h4 style="margin-top:12px">Presupuesto máximo: <span id="obBudgetVal">sin límite</span></h4>
+          <input type="range" id="obBudget" min="0" max="100" step="5" value="100" style="width:100%">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn primary" id="obCreate">Crear mi perfil y recomendar</button>
+        <button class="btn" id="obDemo">Rellenar con un ejemplo</button>
+      </div>
+      <h4 style="margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">¿Ya usas algún producto? Búscalo y agrégalo a tu perfil</h4>
+      <input type="search" id="obSearch" placeholder="Busca por nombre del producto…" style="width:100%">
+      <div class="sres" id="obSearchRes"></div>
+    </div>
+    <div id="newResult"></div>
+  </section>
+
+  <section id="tab-how" hidden>
+    <div class="card">
+      <h3>¿Cómo genera MyTwin una recomendación?</h3>
+      <div class="flow">
+        <div class="step"><b>1 · Datos</b>Reseñas y metadatos de Amazon Reviews'23 (Video Games), limpiados con Spark y guardados en Parquet.</div>
+        <div class="step"><b>2 · Perfil virtual</b>Marcas, plataformas, rango de precio y texto de lo que el usuario valora, ponderado por rating y recencia.</div>
+        <div class="step"><b>3 · Modelos</b>Contenido, vecinos (kNN), factores latentes (SVD), segmento y popularidad puntúan todo el catálogo.</div>
+        <div class="step"><b>4 · Híbrido</b>Se estandariza cada puntaje y se suman con pesos ajustados en validación.</div>
+        <div class="step"><b>5 · Explicación</b>Cada tarjeta muestra cuánto aportó cada modelo y el motivo principal.</div>
+      </div>
+    </div>
+    <div class="card"><h3>Pesos del modelo híbrido</h3><div id="howWeights"></div></div>
+    <div class="card"><h3>Actualización del perfil con eventos</h3><div id="howEvents"></div>
+      <p class="note">Cada evento mueve el perfil al instante: el perfil anterior pesa 90 % y el producto nuevo suma según el tipo de evento. Los colaborativos usan solo los eventos positivos.</p></div>
+    <div class="card" id="howMetricsCard" hidden><h3>Resultados de la evaluación (prueba offline)</h3><div id="howMetrics"></div>
+      <p class="note">Protocolo leave-last-out temporal con ranking completo sobre todo el catálogo.</p></div>
+  </section>
+</main>
+
+<script>
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PARTS = [
+  {k:'content', name:'Perfil (contenido)', cls:'s-content'},
+  {k:'knn', name:'Colaborativo (vecinos)', cls:'s-knn'},
+  {k:'svd', name:'Factores latentes (SVD)', cls:'s-svd'},
+  {k:'segpop', name:'Tu segmento', cls:'s-segpop'},
+  {k:'pop', name:'Popularidad', cls:'s-pop'}
+];
+const EVENTS = [
+  {k:'visto', ico:'👁', tip:'Visto (+)'}, {k:'guardado', ico:'⭐', tip:'Guardado (++)'},
+  {k:'descartado', ico:'✖', tip:'Descartado (−)'}, {k:'comprado', ico:'🛒', tip:'Comprado (+++)'}
+];
+const TIER_LABEL = {bajo:'Bajo (<$15)', medio:'Medio ($15–50)', alto:'Alto (>$50)', sin_precio:'Sin precio'};
+const S = {mode:'existing', user:null, events:[], prefs:null, prev:{}};
+let INFO = null;
+
+async function api(path, body) {
+  const opt = body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : undefined;
+  const r = await fetch(path, opt);
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+const fmtPrice = p => p == null ? 'sin precio' : '$' + Number(p).toFixed(2);
+
+/* ---------- filtros ---------- */
+function priceLabel(el, max) { return (+el.value >= +max) ? 'sin límite' : '$' + el.value; }
+function getFilters() {
+  const pr = $('#fPrice');
+  return {platform: $('#fPlat').value || null, max_price: (+pr.value >= +pr.max) ? null : +pr.value};
+}
+function buildFilters() {
+  $('#fPlat').innerHTML = '<option value="">Todas</option>' + INFO.platforms.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  [$('#fPrice'), $('#obBudget')].forEach(el => { el.max = INFO.max_price; el.value = INFO.max_price; });
+  $('#fPriceVal').textContent = 'sin límite'; $('#obBudgetVal').textContent = 'sin límite';
+  $('#fPrice').addEventListener('input', () => { $('#fPriceVal').textContent = priceLabel($('#fPrice'), INFO.max_price); });
+  $('#fPrice').addEventListener('change', refresh);
+  $('#fPlat').addEventListener('change', refresh);
+  $('#obBudget').addEventListener('input', () => { $('#obBudgetVal').textContent = priceLabel($('#obBudget'), INFO.max_price); });
+}
+
+/* ---------- usuarios existentes ---------- */
+async function loadUsers(q) {
+  const url = 'api/users?n=10&seed=' + Math.floor(Math.random() * 1e6) + (q ? '&q=' + encodeURIComponent(q) : '');
+  const us = await api(url);
+  const box = $('#userList');
+  box.innerHTML = us.length ? us.map(u => `
+    <div class="ucard ${S.user && S.user.idx === u.idx ? 'on' : ''}" data-u='${esc(JSON.stringify(u))}'>
+      <div class="id">${esc(u.id.slice(0, 12))}…</div>
+      <div class="meta">${u.n_hist} compras · ${esc(u.top_platform)} · ${esc(u.segment_name)}</div>
+    </div>`).join('') : '<p class="note">Sin resultados.</p>';
+}
+function selectUser(u) {
+  S.mode = 'existing'; S.user = u; S.events = []; S.prev = {};
+  $$('#userList .ucard').forEach(c => c.classList.toggle('on', JSON.parse(c.dataset.u).idx === u.idx));
+  refresh();
+}
+
+/* ---------- usuario nuevo ---------- */
+function buildOnboarding() {
+  const chips = (arr) => arr.map(v => `<button class="chip" data-v="${esc(v)}">${esc(v)}</button>`).join('');
+  $('#obPlat').innerHTML = chips(INFO.platforms.slice(0, 7));
+  $('#obBrand').innerHTML = chips(INFO.brands.slice(0, 12));
+  ['#obPlat', '#obBrand'].forEach(sel => $(sel).addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (b) b.classList.toggle('on');
+  }));
+}
+function createProfile() {
+  const pr = $('#obBudget');
+  const prefs = {
+    platforms: $$('#obPlat .chip.on').map(b => b.dataset.v),
+    brands: $$('#obBrand .chip.on').map(b => b.dataset.v),
+    keywords: $('#obKw').value,
+    max_price: (+pr.value >= +pr.max) ? null : +pr.value
+  };
+  S.mode = 'new'; S.prefs = prefs; S.events = []; S.prev = {};
+  $('#fPrice').value = prefs.max_price == null ? INFO.max_price : prefs.max_price;
+  $('#fPriceVal').textContent = priceLabel($('#fPrice'), INFO.max_price);
+  refresh();
+}
+function fillDemo() {
+  $$('#obPlat .chip, #obBrand .chip').forEach(c => c.classList.remove('on'));
+  const p = $$('#obPlat .chip')[0], b = $$('#obBrand .chip')[0];
+  if (p) p.classList.add('on'); if (b) b.classList.add('on');
+  $('#obKw').value = ''; $('#obBudget').value = Math.round(INFO.max_price / 2 / 5) * 5;
+  $('#obBudgetVal').textContent = priceLabel($('#obBudget'), INFO.max_price);
+  createProfile();
+}
+let searchTimer = null;
+async function doSearch() {
+  const q = $('#obSearch').value.trim();
+  if (q.length < 2) { $('#obSearchRes').innerHTML = ''; return; }
+  const items = await api('api/search?q=' + encodeURIComponent(q));
+  $('#obSearchRes').innerHTML = items.length ? items.map(it => `
+    <div class="it"><span><b>${esc(it.title.slice(0, 70))}</b><br><span class="note">${esc(it.brand)} · ${esc(it.platform)} · ${fmtPrice(it.price)}</span></span>
+    <button class="btn" data-add='${esc(JSON.stringify({i: it.i, title: it.title}))}'>🛒 Ya lo uso</button></div>`).join('') : '<p class="note">Sin resultados.</p>';
+}
+
+/* ---------- eventos y refresco ---------- */
+function addEvent(i, kind, title) {
+  if (S.mode === 'new' && !S.prefs) S.prefs = {platforms: [], brands: [], keywords: '', max_price: null};
+  S.events.push({i: i, kind: kind, title: title || ''});
+  refresh();
+}
+async function refresh() {
+  if (S.mode === 'existing' && !S.user) return;
+  if (S.mode === 'new' && !S.prefs) return;
+  const cont = S.mode === 'existing' ? $('#existingResult') : $('#newResult');
+  cont.classList.add('loading');
+  try {
+    const d = await api('api/recommend', {
+      mode: S.mode, user: S.user ? S.user.idx : null, prefs: S.prefs, filters: getFilters(),
+      events: S.events.map(e => ({i: e.i, kind: e.kind})), k: 10
+    });
+    renderResult(cont, d);
+  } catch (err) {
+    cont.innerHTML = `<div class="card err">No pude generar recomendaciones: ${esc(err.message)}</div>`;
+  }
+  cont.classList.remove('loading');
+}
+
+/* ---------- render ---------- */
+function barsHTML(list) {
+  if (!list || !list.length) return '<p class="note">Aún sin datos.</p>';
+  return list.map(x => `<div class="row"><span class="lab" title="${esc(x.name)}">${esc(x.name)}</span>
+    <div class="track"><div class="fill" style="width:${Math.round(x.share * 100)}%"></div></div><span class="pct">${Math.round(x.share * 100)}%</span></div>`).join('');
+}
+function tiersHTML(t) {
+  return barsHTML(Object.keys(TIER_LABEL).map(k => ({name: TIER_LABEL[k], share: (t && t[k]) || 0})));
+}
+function heldHTML(h) {
+  if (!h) return '';
+  const pct = (100 * h.rank / h.n_items).toFixed(1);
+  const cls = h.in_topk ? 'ok' : (h.rank <= 50 ? 'mid' : 'low');
+  const msg = h.in_topk ? '✔ ¡Dentro del top 10!' : (h.rank <= 50 ? 'Cerca (top 50)' : 'Fuera del top 50');
+  return `<div class="card held ${h.in_topk ? 'hit' : ''}"><h3>🔎 Prueba de realidad</h3>
+    <p style="margin:0 0 6px">El siguiente producto que este usuario realmente reseñó (oculto para el modelo) fue
+    <b>${esc(h.title.slice(0, 80))}</b> <span class="note">(${esc(h.brand)} · ${esc(h.platform)})</span>.</p>
+    <span class="badge ${cls}">${msg}</span> <span class="note">El modelo lo ubicó en la posición #${h.rank.toLocaleString()} de ${h.n_items.toLocaleString()} (top ${pct} %).</span></div>`;
+}
+function renderResult(cont, d) {
+  const prev = S.prev, hasPrev = Object.keys(prev).length > 0, newPrev = {};
+  d.recs.forEach(r => { newPrev[r.i] = r.rank; });
+  let head = '', chips = '';
+  if (d.mode === 'existing') {
+    head = `Perfil virtual · usuario ${esc(d.user.id.slice(0, 12))}…`;
+    chips = `<span class="chip static">${esc(d.user.segment_name)}</span><span class="chip static">${d.user.n_hist} compras</span>` +
+      (d.avg_rating != null ? `<span class="chip static">rating prom. ${d.avg_rating}</span>` : '');
+  } else {
+    head = 'Tu perfil virtual';
+    const g = d.declared, si = d.seed_info;
+    chips = (g.platforms || []).map(x => `<span class="chip static">${esc(x)}</span>`).join('') +
+      (g.brands || []).map(x => `<span class="chip static">${esc(x)}</span>`).join('') +
+      (g.keywords ? `<span class="chip static">“${esc(g.keywords)}”</span>` : '') +
+      (g.max_price ? `<span class="chip static">hasta $${g.max_price}</span>` : '');
+    if (si && si.constraints === 0) chips += '<span class="note">Sin preferencias declaradas: se recomienda por popularidad hasta que interactúes.</span>';
+    else if (si) chips += `<span class="note">Perfil construido con ${si.matched} productos que encajan` + (si.relaxed.length ? ` (relajé: ${esc(si.relaxed.join(', '))})` : '') + '.</span>';
+  }
+  const evs = S.events.length ? `<div class="card"><h3>Tus interacciones (${S.events.length})</h3><div class="chips">` +
+    S.events.map((e, idx) => {
+      const ev = EVENTS.find(x => x.k === e.kind);
+      return `<span class="chip static">${ev ? ev.ico : ''} ${esc(e.kind)} · ${esc((e.title || '').slice(0, 28))}<span class="x" data-rm="${idx}">✕</span></span>`;
+    }).join('') + `</div><p class="note" style="margin:8px 0 0">El perfil se actualizó al instante. ▲▼ muestran cómo cambió cada posición.</p></div>` : '';
+  const hist = (d.history && d.history.length) ? `<div class="card"><h3>Últimas compras</h3><div class="chips">` +
+    d.history.map(h => `<span class="chip static" title="${esc(h.title)}">${esc(h.title.slice(0, 34))} · ${h.rating}★</span>`).join('') + '</div></div>' : '';
+  const recs = d.recs.map(r => {
+    let delta = '';
+    if (hasPrev) {
+      const pr = prev[r.i];
+      if (pr === undefined) delta = '<span class="delta new">✨ nuevo</span>';
+      else if (pr > r.rank) delta = `<span class="delta up">▲${pr - r.rank}</span>`;
+      else if (pr < r.rank) delta = `<span class="delta down">▼${r.rank - pr}</span>`;
+    }
+    const pos = PARTS.map(p => ({p: p, v: Math.max(0, (r.parts && r.parts[p.k]) || 0)}));
+    const tot = pos.reduce((a, b) => a + b.v, 0) || 1;
+    const bar = pos.filter(x => x.v > 0).map(x =>
+      `<span class="${x.p.cls}" style="width:${(100 * x.v / tot).toFixed(1)}%" title="${esc(x.p.name)}: ${(100 * x.v / tot).toFixed(0)} %"></span>`).join('');
+    const acts = EVENTS.map(e => `<button title="${e.tip}" data-ev="${e.k}" data-i="${r.i}" data-t="${esc(r.title.slice(0, 60))}">${e.ico}</button>`).join('');
+    return `<div class="rec"><div class="rank">#${r.rank} ${delta}</div>
+      <div class="rtitle">${esc(r.title.slice(0, 90))}</div>
+      <div class="rmeta">${esc(r.brand)} · ${esc(r.platform)} · ${fmtPrice(r.price)}</div>
+      <div class="reason">💡 ${esc(r.reason)}</div>
+      <div class="cbar">${bar}</div><div class="acts">${acts}</div></div>`;
+  }).join('');
+  const legend = '<div class="legend">' + PARTS.map(p => `<span><i class="${p.cls}"></i>${esc(p.name)}</span>`).join('') + '</div>';
+  cont.innerHTML = `
+    <div class="card"><h3>${head}</h3><div class="chips" style="margin-bottom:12px">${chips}</div>
+      <div class="pgrid"><div><h4>Marcas</h4>${barsHTML(d.profile.brands)}</div>
+      <div><h4>Plataformas</h4>${barsHTML(d.profile.platforms)}</div><div><h4>Rango de precio</h4>${tiersHTML(d.profile.tiers)}</div></div></div>
+    ${heldHTML(d.heldout)}${hist}${evs}
+    <div class="card"><h3>Recomendaciones para ti</h3>
+      <p class="note" style="margin-top:0">Usa 👁 visto · ⭐ guardado · ✖ descartado · 🛒 comprado y mira cómo se reordena la lista. La barra de colores muestra qué modelo pesó más.</p>
+      ${legend}<div class="recs" style="margin-top:12px">${recs || '<p class="note">No hay productos que cumplan los filtros.</p>'}</div></div>`;
+  S.prev = newPrev;
+}
+
+/* ---------- cómo funciona ---------- */
+function renderHow() {
+  const names = {content:'Perfil (contenido)', knn:'Colaborativo (vecinos)', svd:'Factores latentes (SVD)', segpop:'Segmento', pop:'Popularidad'};
+  $('#howWeights').innerHTML = '<table><tr><th>Componente</th><th>Peso</th></tr>' +
+    PARTS.map(p => `<tr><td><i class="${p.cls}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px"></i>${names[p.k]}</td><td>${(INFO.weights[p.k] || 0)}</td></tr>`).join('') + '</table>' +
+    '<p class="note">Para usuarios nuevos no existe segmento; el contenido pesa al menos 1 y la popularidad al menos 0.3 para que el arranque en frío tenga señal.</p>';
+  $('#howEvents').innerHTML = '<table><tr><th>Evento</th><th>Peso</th></tr>' +
+    EVENTS.map(e => `<tr><td>${e.ico} ${esc(e.k)} <span class="note">${esc(e.tip)}</span></td><td>${INFO.event_weights[e.k]}</td></tr>`).join('') + '</table>';
+  if (INFO.metrics && INFO.metrics.length) {
+    const cols = Object.keys(INFO.metrics[0]);
+    $('#howMetrics').innerHTML = '<table><tr>' + cols.map(c => `<th>${esc(c)}</th>`).join('') + '</tr>' +
+      INFO.metrics.map(r => '<tr>' + cols.map(c => `<td>${esc(r[c])}</td>`).join('') + '</tr>').join('') + '</table>';
+    $('#howMetricsCard').hidden = false;
+  }
+}
+
+/* ---------- arranque ---------- */
+function showTab(t) {
+  $$('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['existing', 'new', 'how'].forEach(x => { $('#tab-' + x).hidden = (x !== t); });
+  $('#filters').hidden = (t === 'how');
+  if (t !== 'how') S.mode = t;
+}
+async function init() {
+  try {
+    INFO = await api('api/info');
+  } catch (e) {
+    document.body.insertAdjacentHTML('afterbegin', `<div class="card err" style="margin:20px">No pude conectar con el servidor: ${esc(e.message)}</div>`); return;
+  }
+  $('#stats').innerHTML = `<span><b>${INFO.n_users.toLocaleString()}</b> usuarios</span><span><b>${INFO.n_items.toLocaleString()}</b> productos</span><span><b>${INFO.n_interactions.toLocaleString()}</b> interacciones</span>`;
+  buildFilters(); buildOnboarding(); renderHow();
+  $$('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  $('#btnShuffle').addEventListener('click', () => { $('#userSearch').value = ''; loadUsers(); });
+  $('#userSearch').addEventListener('input', e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadUsers(e.target.value.trim()), 300); });
+  $('#userList').addEventListener('click', e => { const c = e.target.closest('.ucard'); if (c) selectUser(JSON.parse(c.dataset.u)); });
+  $('#obCreate').addEventListener('click', createProfile);
+  $('#obDemo').addEventListener('click', fillDemo);
+  $('#obSearch').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 300); });
+  $('#obSearchRes').addEventListener('click', e => {
+    const b = e.target.closest('[data-add]'); if (!b) return;
+    const it = JSON.parse(b.dataset.add); S.mode = 'new'; $('#obSearchRes').innerHTML = ''; $('#obSearch').value = '';
+    addEvent(it.i, 'comprado', it.title);
+  });
+  ['#existingResult', '#newResult'].forEach(sel => $(sel).addEventListener('click', e => {
+    const b = e.target.closest('[data-ev]');
+    if (b) { addEvent(+b.dataset.i, b.dataset.ev, b.dataset.t); return; }
+    const rm = e.target.closest('[data-rm]');
+    if (rm) { S.events.splice(+rm.dataset.rm, 1); S.prev = {}; refresh(); }
+  }));
+  await loadUsers();
+}
+init();
+</script>
+</body>
+</html>
